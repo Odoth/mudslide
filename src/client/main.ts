@@ -3,7 +3,7 @@ import { FitAddon } from 'xterm-addon-fit';
 
 import { IoEvent } from "../common/ioevent";
 
-import { Telnet } from "./telnetlib";
+import { Telnet, NegotiationData, Cmd, Opt } from "./telnetlib";
 import * as util from "./util";
 
 import * as io from "socket.io-client";
@@ -33,17 +33,78 @@ const theme: ITheme = {
     brightWhite: "rgb(256,256,256)"
 };
 
+const TTYPES: string[] = [
+    "MudSlide",
+    "ANSI",
+    "-256color"
+];
+
+export namespace SubNeg {
+    export const IS = 0;
+    export const SEND = 1;
+    export const ACCEPTED = 2;
+    export const REJECTED = 3;
+}
+
+function arrayFromString(str: string): number[] {
+    let arr = new Array(str.length);
+    for (let i = 0; i < arr.length; i++) {
+        arr[i] = str.charCodeAt(i);
+    }
+
+    return arr;
+}
+
+class TelnetClient extends Telnet {
+    private ttypeIndex: number = 0;
+
+    constructor(writeFunc: (data: ArrayBuffer) => void) {
+        super(writeFunc);
+
+        this.EvtNegotiation.handle((data) => { this.onNegotiation(data); });
+    }
+
+    private onNegotiation(data: NegotiationData) {
+        let {cmd, opt} = data;
+
+        if (cmd === Cmd.DO) {
+            if (opt === Opt.TTYPE) {
+                this.writeArr([Cmd.IAC, Cmd.WILL, Opt.TTYPE]);
+            }
+        } else if (cmd === Cmd.SE) {
+            let sb = this.readSbArr();
+
+            if (sb.length < 1) {
+                return;
+            }
+            
+            if (sb.length === 2 && sb[0] === Opt.TTYPE && sb[1] === SubNeg.SEND) {
+                let ttype: string;
+                if (this.ttypeIndex == TTYPES.length)
+                {
+                    ttype = TTYPES[this.ttypeIndex - 1];
+                    this.ttypeIndex = 0;
+                } else {
+                    ttype = TTYPES[this.ttypeIndex];
+                    this.ttypeIndex++;
+                }
+                this.writeArr( ([Cmd.IAC, Cmd.SB, Opt.TTYPE, SubNeg.IS]).concat(
+                    arrayFromString(ttype),
+                    [Cmd.IAC, Cmd.SE]
+                ));
+            }
+        }
+    }
+}
 
 export namespace mudslide {
-
-    
     export function Init() {
         let term = new Terminal({
-            theme: theme,
+            // theme: theme,
             cursorStyle: "bar",
             cursorWidth: 0,
-            fontSize: 13,
-            fontFamily: 'courier-new, courier, monospace',
+            // fontSize: 13,
+            // fontFamily: 'courier-new, courier, monospace',
         });
         const fitAddon = new FitAddon();
         term.loadAddon(fitAddon);
@@ -86,10 +147,12 @@ export namespace mudslide {
 
         let ioEvt = new IoEvent(ioConn);
 
-        let tn: Telnet | null = null;
+        // let tn: Telnet | null = null;
+        let tn: TelnetClient | null = null;
 
         ioEvt.srvTelnetOpened.handle(() => {
-            tn = new Telnet((data) => {
+            // tn = new Telnet((data) => {
+            tn = new TelnetClient((data) => {
                 ioEvt.clReqTelnetWrite.fire(data);
             });
 

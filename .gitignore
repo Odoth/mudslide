@@ -1,0 +1,6 @@
+/node_modules/
+/out/
+/package-lock.json
+/static/xterm.css
+/static/mudslide.js
+/static/mudslide.js.map

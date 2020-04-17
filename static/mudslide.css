@@ -1,0 +1,14 @@
+#mudslide {
+    width: 100vw;
+    max-width: 100%;
+    height: 92vh;
+
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+}
+
+#terminal {
+    flex: 1 0;
+}

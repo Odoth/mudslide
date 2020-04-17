@@ -1,0 +1,7 @@
+{
+    "compilerOptions": {
+        "outDir": "../../out/server",
+        "noImplicitAny": true,
+        "noImplicitReturns": true
+    }
+}
